@@ -1,0 +1,374 @@
+---
+title: "Inflation Portfolio"
+author: "Nicholas Chai"
+date: "2022-11-10"
+output:
+  html_document:
+  number_sections: true
+  theme: readable
+---
+## Battling Food Price Inflation: Optimizing Your Spending
+
+Let's talk about inflation.
+
+As a fellow college student that loves to cook and enjoy food, prices of all products have 
+soared into uncharted territories. 
+
+Hey, remember McDonald's 1 Dollar Menu? Yeah... it cost about $3.64 in most states now...
+
+No way, I used to buy a dozen eggs for about 2.50 a pop. Well, it'll cost you about $3.50 now...
+
+![.](C:\Users\nicky\Downloads\everything-is-expensive-meme-inflation-2022.png)
+
+As reiterated, I am a college student that does not currently possess financial freedom and you can see why this may burden my pockets a bit.
+
+It's not just food. Everything in our economy is inflated from gas to energy.
+
+To make things simple, inflation affects all of us as consumers. Most of us will look at this with disgust and draw the conclusion that our government inflates our prices because they hate us.
+
+However, I am here today to take a deeper dive into the potential relationship in the reasons why inflation has been happening and recommendations in how to optimize your savings based on the given data.
+
+## Table of Contents
+I. Setting Up my Environment    
+II. COVID-19                                                     
+III. Relative Demand & Price Index                   
+IV. CPI and PPI             
+V. Linear Regression               
+VI. Seasonal Data          
+VII. Conclusion  
+
+## I. Setting up my Environment
+For this specific project, only these packages are required. We will be using tidyverse which already included ggplot2 and ggpubr which help us visualize and graph our dataset. tidyr and dplyr will help us organize and manipulate our datasets. ggthemes and viridis help us make our visualizations more appealing.
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(ggpubr)
+library(tidyr)
+library(ggthemes)
+library(viridis)
+```
+ 
+## II. COVID-19
+We can first inspect the unemployment levels of COVID-19 as one of the many causes of inflation from the U.S. Bureau of Labor Statistics.
+
+```{r}
+library(readxl)
+Unemployment_Rate_Men_Covid_19 <- read_excel("C:/Users/nicky/Downloads/Unemployment Rate Men COVID 19.xlsx", col_types = c("date", "numeric", "numeric","numeric", "numeric", "numeric", "numeric","numeric"))
+
+Unemployment_Rate_Women_Covid_19 <- read_excel("C:/Users/nicky/Downloads/Unemployment Rate Covid 19 Women.xlsx", col_types = c("date", "numeric", "numeric","numeric", "numeric", "numeric","numeric","numeric"))
+
+Unemployment_Rate_Under_19_Covid_19 <- read_excel("C:/Users/nicky/Downloads/Unemployment Rate Covid 19 Under 19 .xlsx", col_types = c("date", "numeric","numeric", "numeric", "numeric","numeric","numeric","numeric"))
+```
+
+After inspecting the data, we can plot the 3 sub types of Men, Women, and individuals under the age of 19 versus the number of unemployment from 2020 to 2022.
+
+```{r, out.height="70%", out.width="120%"}
+ggplot(data=Unemployment_Rate_Men_Covid_19, 
+       aes(x=Date,y=Unemployed,color="white"))+
+  geom_point(show.legend=FALSE)+
+  geom_smooth(span=1, color="skyblue")+
+  labs(title="Unemployment From 2020-2022", subtitle="Men")+
+  ylab("Number of Unemployed")+
+  theme_solarized_2(light=FALSE)+
+  scale_colour_solarized()+
+  theme(axis.text.x=element_text(angle=90,hjust=0.55,vjust=0.25))
+  
+ggplot(data=Unemployment_Rate_Women_Covid_19, 
+       aes(x=Date,y=Unemployed,color="white"))+
+  geom_point(show.legend=FALSE)+
+  geom_smooth(span=1, color="skyblue")+
+  labs(title="Unemployment Rate From 2020-2022")+
+  ylab("Number of Unemployed")+
+  theme_solarized_2(light=FALSE)+
+  scale_colour_solarized()+
+  theme(axis.text.x=element_text(angle=90,hjust=0.55,vjust=0.25))
+
+ggplot(data=Unemployment_Rate_Under_19_Covid_19, 
+       aes(x=Date,y=Unemployed,color="white"))+
+  geom_point(show.legend=FALSE)+
+  geom_smooth(span=1, color="skyblue")+
+  labs(title="Unemployment Rate From 2020-2022", subtitle="Under 19")+
+  ylab("Number of Unemployed")+
+  theme_solarized_2(light=FALSE)+
+  scale_colour_solarized()+
+  theme(axis.text.x=element_text(angle=90,hjust=0.55,vjust=0.25))
+```
+
+For Men's, the data shows us how peak year of unemployment which was 10,515 people in April of 2020. Consider this the peak or beginning of COVID-19 lockdown as companies were frantic to save money during the pandemic as they cut down labor.
+
+Similarly, for womens, unemployment peaked in April of 2020 with 10,958 unemployed. Compared to individuals under the age of 19, this group peaked in May of 2020 with 1653 unemployeed. Just like men and women, teenagers were also affected by the economic recession caused by COVID-19.
+
+We can assume reducing labor costs affects inflation but lets take a deeper dive in which types of foods are most relevant to us.
+
+ 
+## III. Relative Demand & Price Index
+Economic Research Service @ U.S. Department of Agriculture
+
+```{r}
+library(readxl)
+CPI <- read_excel("C:/Users/nicky/Downloads/CPIforecast (1).xlsx",
+                  col_types = c("text", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric"))
+
+
+colnames(CPI) <- c("Item","Relative_Percentage", "Month to Month August2022 to September2022", "Year Over Year September2021 to September2022",
+                   "Year to Date Avg. From 2021to2022", "CPI2020", "CPI2021", "20Year Historical Average")
+
+library(readxl)
+PPI <- read_excel("C:/Users/nicky/Downloads/PPIforecast.xlsx")
+
+colnames(PPI) <- c("Item","Relative_Percentage", "Month to Month August2022 to September2022", "Year Over Year September2021 to September2022",
+                   "Year to Date Avg. From 2021to2022", "PPI2020", "PPI2021", "20Year Historical Average")
+
+Cereal_and_Bakery_Products <- sum(rowSums(CPI[20,2]))
+Dairy_Product <- sum(rowSums(CPI[12,2]))
+Fats_and_Oils <- sum(rowSums(CPI[13,2]))
+Food_Away_From_Home <- sum(rowSums(CPI[2,2]))
+Fruits_and_Vegetables <- sum(rowSums(CPI[14,2]))
+Meats <- sum(rowSums(CPI[4,2]))
+Non_Alcoholic_Beverages <- sum(rowSums(CPI[21,2]))
+Sugar_and_Sweets <- sum(rowSums(CPI[19,2]))
+Other_Foods <- sum(rowSums(CPI[22,2]))
+
+
+Item_Percentages <- data.frame(
+  Product=c("Cereal and Bakery Products","Dairy Product","Fats and Oils","Food Away From Home", "Fruits and Vegetables","Meats",
+            "Nonalcoholic Beverages", "Sugar and Sweets", "Other Foods"),
+  Percentages=c(Cereal_and_Bakery_Products, Dairy_Product, Fats_and_Oils,Food_Away_From_Home,
+                Fruits_and_Vegetables, Meats, Non_Alcoholic_Beverages,
+                Sugar_and_Sweets,Other_Foods))
+```
+
+
+## Plotting a Bar Graph for the New Data Frame  
+```{r, fig.height=6, out.height="75%", out.width="120%"}
+ggplot(Item_Percentages, aes(x=Product, y=Percentages))+
+  geom_bar(stat = "identity",show.legend = FALSE, fill="skyblue")+
+  theme(axis.text.x=element_text(angle=45,vjust=1,hjust=2))+
+  geom_text(aes(label=round(Percentages),vjust=1))+
+  labs(title="Percentage of Demand")+
+  ylab("Percentage")+
+  theme_solarized_2(light=FALSE)+
+  theme(axis.text.x=element_text(angle=45,hjust=0.45,vjust=0.55),
+        axis.text = element_text(size = 7))
+```
+
+This graph showcases the different types of food that are relevant to us in society. The obvious observation we can infer is that food away from home or "takeout" is 38% of our relative demand. This also explains how food delivery services also gained a massive increase in revenue growth over the past years. Meats, Fruits & Vegetables, and Other Foods were the next biggest percentages. 
+
+
+## Looking at Different Price Index for Common Needs
+The World Bank
+```{r, out.height="100%", out.width="200%"}
+library(readxl)
+GlobalData <- read_excel("C:/Users/nicky/Downloads/GlobalData.xlsx", 
+                         col_types = c("text", "text", "numeric"))
+
+ggplot(data=GlobalData)+
+  geom_line(mapping=aes(x=Year,y=Annual_Indices,color=Type,group=1))+
+  facet_wrap(~Type)+
+  labs(title="Common Needs")+
+  ylab("Price Index")+
+  theme_solarized_2(light=FALSE)+
+  theme(axis.text.x=element_text(angle=90,hjust=0.45,vjust=0.45))+
+  theme(axis.text = element_text(size = 7))
+
+```
+
+The Price Index is known as the normalized average of price relatives for a certain class of goods or services. According to the graph, we can infer fertilizers, agriculture, food, grains, and oil are the most important needs in our society. We can see the sudden spike in Price Index from 2020-2021 which is another indicator of inflation.
+
+Let's look at a more specific category that can help us better understand inflation: CPI and PPI.
+
+## IV. CPI and PPI
+## CPI and PPI for Food, Gas, and Energy
+U.S. Bureau of Labor Statistics 
+```{r, out.height="100%", out.width="200%"}
+library(readxl)
+CPI_For_Food_Gas_Energy <- read_excel("C:/Users/nicky/Downloads/CPI For Food Gas Energy.xlsx", 
+    col_types = c("text", "numeric", "numeric", "numeric"))
+PPI_For_Food_Gas_Energy <- read_excel("C:/Users/nicky/Downloads/PPI For Food Gas Energy.xlsx", 
+    col_types = c("text", "numeric", "numeric", "numeric"))
+
+CPI_and_PPI <- merge(CPI_For_Food_Gas_Energy, PPI_For_Food_Gas_Energy, by="Year",
+                     col_types = c("text", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric"))
+
+colnames(CPI_and_PPI) =c("Year", "CPI_For_Gas", "CPI_For_Energy", "CPI_For_Food", "PPI_For_Gas","PPI_For_Energy","PPI_For_Food")
+```
+
+```{r}
+ggplot(data=CPI_and_PPI)+
+  geom_line(mapping = aes(x=Year, y=CPI_For_Food,group=1,color="Food"))+
+  geom_line(mapping = aes(x=Year, y=CPI_For_Gas,group=1,color="Gas"))+
+  geom_line(mapping = aes(x=Year, y=CPI_For_Energy,group=1,color="Energy"))+
+  labs(title="The CPI For Food, Gas, and Energy", colour="Legend")+
+  ylab("CPI")+
+  theme(axis.text.x=element_text(angle=90,vjust=1,hjust=1))+
+  theme_solarized_2(light=FALSE)
+
+ggplot(data=CPI_and_PPI)+
+  geom_line(mapping = aes(x=Year, y=PPI_For_Food,group=1,color="Food"))+
+  geom_line(mapping = aes(x=Year, y=PPI_For_Gas,group=1,color="Gas"))+
+  geom_line(mapping = aes(x=Year, y=PPI_For_Energy,group=1,color="Energy"))+
+  labs(title="The PPI For Food, Gas, and Energy", colour="Legend")+
+  ylab("PPI")+
+  theme(axis.text.x=element_text(angle=90,vjust=1,hjust=1))+
+  theme_solarized_2(light=FALSE)
+```
+
+The CPI stands for Consumer Price Index. It measures the overall change in consumer prices. From 2020-2022, we can conclude a positive linear relationship between the year and CPI. Gas had a CPI of 357.9492, Energy had a CPI of 301.2154, and Food had a CPI of 301.8481 in 2022. Compared to 2020, these values increased exponentially doubled with an increase of almost 200%. 
+
+The PPI stands for Producer Price Index. It measures the overall change in producer prices. From 2020-2022, we can conclude a positive linear relationship between the year and PPI. Gas had a PPI of 318.8498, Energy had a PPI of 158.27544, and Food had a PPI of 147.3619 in 2022. Compared to 2020, these values increased exponentially doubled with an increase of 200% while the CPI of Gas almost tripled. 
+
+## Facet Graph For CPI and Their Foods
+U.S. Bureau of Labor Statistics 
+```{r, fig.height=6, out.height="75%", out.width="120%"}
+library(readxl)
+HistoricalCPI <- read_excel("C:/Users/nicky/Downloads/historicalcpi.xlsx", 
+                            col_types = c("text", "numeric", "text"))
+colnames(HistoricalCPI) <- c("Year", "Change_In_CPI","Food_Type")
+
+ggplot(data=HistoricalCPI)+
+  geom_line(mapping=aes(x=Year,y=Change_In_CPI,color=Food_Type,group=1),
+            show.legend=FALSE)+
+  facet_wrap(~Food_Type)+
+  labs(title="Inflation Rate For Products", subtitle="Percent Change in CPI",colour="Legend")+
+  ylab("Inflation Rate")+
+  theme_solarized_2(light=FALSE)+
+  theme(legend.title = element_text(size = 7), legend.text = element_text(size = 7),
+        plot.subtitle = element_text(size = 10),
+        strip.text = element_text(size = 8),
+        axis.title=element_text(size=8),
+        axis.text.x=element_text(angle=90,hjust=0.45,vjust=0.45),
+        axis.text = element_text(size = 7))                    
+```
+
+The change in CPI or known as inflation, is a effective tool in helping us understand our data trend. The main categories of these food that displays a positive linear forecast from 2020-2022 is Beef & Veal, Fish & Seafood, Fats & Oils, Fruits and Vegetables, Pork and Eggs. 
+
+## V. Linear Regression 
+## Testing Normal Distribution
+```{r}
+shapiro.test(CPI_and_PPI$CPI_For_Food)
+shapiro.test(CPI_and_PPI$PPI_For_Food)
+
+lnPPI <- log(CPI_and_PPI$PPI_For_Food)
+shapiro.test(lnPPI)
+
+cor.test(CPI_and_PPI$ CPI_For_Food, CPI_and_PPI$PPI_For_Food,  method="kendall")
+```
+
+Our first analysis test is the Shapiro Test which measures the normal distribution of our population. We want to test our distribution to decide which statistical test we want to use. After analyzing the Shapiro Test, our p-value of CPI for Food is 0.1485 and 0.0002 for PPI for Food. Our values for CPI follows a normal distribution while PPI does not as if p > 0.05, we can use the Pearson Correlation Test yielding for normal distribution. 
+
+Therefore, we can try to analyze the values of PPI after taking the log. However, the p-value still remains less than 0.5. We can come to the conclusion that we reject the Pearson Correlation Test and use the Kendall Rank Correlation Test which can be used regardless of distribution.
+
+## Creating a Linear Regression Model for CPI and PPI with Kendall Rank Correlation
+```{r}
+ggscatter(CPI_and_PPI,x="CPI_For_Food",y="PPI_For_Food",
+          add = "reg.line", conf.int = TRUE,
+          cor.coef = TRUE, cor.method = "kendall",color="white")+
+  stat_cor(color="white")+
+  labs(title="Correlation Between CPI and PPI")+
+  ylab("PPI")+
+  xlab("CPI")+
+  theme(axis.text.x=element_text(angle=90,vjust=1,hjust=1))+
+  theme(axis.text.x=element_text(angle=90,vjust=1,hjust=1))+
+  theme_solarized_2(light=FALSE)
+
+cor.test(CPI_and_PPI$`CPI_For_Food`, CPI_and_PPI$`PPI_For_Food`,
+                             method = "pearson")
+```
+
+Our p-value is less than 0.05 which means our data is considered to be statistically significant, in which case the null hypothesis should be rejected. 
+
+Our tau value is 0.527 which represents a positive correlation between the values of CPI and PPI. This concludes that Consumer Price Index and Producer Price Index move in the same direction. Due to inflation, this hypothesis is deemed true because of the rising values of our products, we can no longer maintain the prices for consumers and producers.
+
+## VI. Seasonal Data
+## Seasonal Data for Meat
+U.S. Bureau of Labor Statistics
+```{r, fig.height=6, out.height="75%", out.width="120%"}
+library(readxl)
+SeasonalMeats <- read_excel("C:/Users/nicky/Downloads/SeasonalMeats.xlsx", col_types = c("text", "text", "text", "text", "numeric", "numeric", "numeric", "numeric"))
+
+colnames(SeasonalMeats) <- c("Title", "SeriesID", "DataType", "Year", "Jan_Mar", "Apr_Jun", "Jul_Sep", "Oct_Dec")
+
+ggplot(data=SeasonalMeats)+
+  geom_line(mapping = aes(x=Year, y=Jan_Mar,group=1,color=Title),show.legend = FALSE)+
+  geom_line(mapping = aes(x=Year, y=Apr_Jun,group=1,color=Title),show.legend = FALSE)+
+  geom_line(mapping = aes(x=Year, y=Jul_Sep,group=1,color=Title),show.legend = FALSE)+
+  geom_line(mapping = aes(x=Year, y=Oct_Dec,group=1,color=Title),show.legend = FALSE)+
+  facet_wrap(~Title)+
+  scale_color_viridis(discrete = TRUE, option = "C")+
+  ylab("Average CPI")+
+  labs(title="Seasonal Average CPI", subtitle="Meats",colour="Legend")+
+  theme_solarized_2(light=FALSE)+
+  theme(plot.subtitle = element_text(size = 12),
+        strip.text = element_text(size = 6),
+        axis.title=element_text(size=12),
+        axis.text = element_text(size = 9)) 
+```
+
+The data above shows the values for each season/quarter for each year. All of the products increased exponentially from 2020-2022. 
+
+We can infer that beef and veal has the highest CPI compared to other cuts of meats. This is due to the labor shortage to process meats like beef. Farms had to cull cattle in the farms because of the shortages. Every aspect of beef production has gone up over the past few years because  of inflation. This directly affected beef the most as in 2021, the average CPI spiked above 400. Compared to other meats, we can assume that frozen fish and seafood has a lower CPI than non-frozen fish and seafood but this is not the case. We can assume the profit margins of meats has decreased significantly over the years. 
+
+## Seasonal Data for Dairy and Wheats
+U.S. Bureau of Labor Statistics
+```{r, fig.height=6, out.height="75%", out.width="120%"}
+library(readxl)
+SeasonalDairyandWheats <- read_excel("C:/Users/nicky/Downloads/SeasonalDairyandWheats.xlsx")
+colnames(SeasonalDairyandWheats) <- c("Title", "SeriesID", "DataType", "Year", "Jan_Mar", "Apr_Jun", "Jul_Sep","Oct_Dec")
+
+ggplot(data=SeasonalDairyandWheats)+
+  geom_line(mapping = aes(x=Year, y=Jan_Mar,group=1,color=Title),show.legend = FALSE)+
+  geom_line(mapping = aes(x=Year, y=Apr_Jun,group=1,color=Title),show.legend = FALSE)+
+  geom_line(mapping = aes(x=Year, y=Jul_Sep,group=1,color=Title),show.legend = FALSE)+
+  geom_line(mapping = aes(x=Year, y=Oct_Dec,group=1,color=Title),show.legend = FALSE)+
+  facet_wrap(~Title)+
+  scale_color_viridis(discrete = TRUE, option = "C")+
+  ylab("Average CPI")+
+  labs(title="Seasonal Average CPI", subtitle="Dairy and Wheats",colour="Legend")+
+  theme_solarized_2(light=FALSE)+
+  theme(plot.subtitle = element_text(size = 12),
+        strip.text = element_text(size = 6),
+        axis.title=element_text(size=12),
+        axis.text = element_text(size = 7)) 
+```
+
+The data above shows the values for each season/quarter for each year. All of the products increased exponentially from 2020-2022. 
+
+This set of the data is the most interesting information pertaining to inflation. We can see that simple ingredients such as butter & margarine, flour & prepared flour mixes, and dairy have a low average CPI. However, items such as cereals & bakery products, crackers, bread & cracker products have an extremely high CPI. These agricultural commodities explains to us how inflation has caused an insane profit margins for some products. For example, breakfast cereal is a "simple product" that only requires cheap inputs but they sell it for an extremely high price. In the current market, cereals are sought out as a breakfast necessity for a lot of people in our society. Mega corporations such as General Mills can use inflation to its advantage and still make impressive profit margins. They can afford to "Wait out" the inflation and deal with reduced profits in the short term as they know prices will stabilize into the new market prices to maintain long term profit margins.
+
+## Seasonal Data for Fruits and Vegetables
+U.S. Bureau of Labor Statistics
+```{r, fig.height=6, out.height="75%", out.width="120%"}
+library(readxl)
+SeasonalFruitsandVegetables <- read_excel("C:/Users/nicky/Downloads/SeasonalFruitsandVegetables.xlsx")
+colnames(SeasonalFruitsandVegetables) <- c("Title", "SeriesID", "DataType", "Year", "Jan_Mar", "Apr_Jun", "Jul_Sep", "Oct_Dec")
+
+ggplot(data=SeasonalFruitsandVegetables)+
+  geom_line(mapping = aes(x=Year, y=Jan_Mar,group=1,color=Title),show.legend = FALSE)+
+  geom_line(mapping = aes(x=Year, y=Apr_Jun,group=1,color=Title),show.legend = FALSE)+
+  geom_line(mapping = aes(x=Year, y=Jul_Sep,group=1,color=Title),show.legend = FALSE)+
+  geom_line(mapping = aes(x=Year, y=Oct_Dec,group=1,color=Title),show.legend = FALSE)+
+  facet_wrap(~Title)+
+  scale_color_viridis(discrete = TRUE, option = "C")+
+  ylab("Average CPI")+
+  labs(title="Seasonal Average CPI", subtitle="Fruits and Vegetables",colour="Legend")+
+  theme_solarized_2(light=FALSE)+
+  theme(plot.subtitle = element_text(size = 12),
+        strip.text = element_text(size = 8),
+        axis.title=element_text(size=12),
+        axis.text = element_text(size = 9))
+```
+
+The data above shows the values for each season/quarter for each year. All of the products increased exponentially from 2020-2022. 
+
+The average CPI for fresh products including fruits and vegetables are more prone to inflation. This is due to the labor shortages and materials needs to maintain the freshness of fruits and vegetables. On the contrary, products such as canned, frozen, and processed fruits and vegetables are not as susceptible to inflation because they can be packaged and stored. 
+
+## VII. Conclusion
+## Optimizing Our Money
+
+The statistical tests done in this analysis show us that the our p-value is less than 0.05 between CPI and PPI. This which our data is considered to be statistically significant, in which case the null hypothesis should be rejected. This concludes that PPI DOES have an effect on CPI.
+
+Our tau value is 0.527 which represents a positive correlation between the values of CPI and PPI. This concludes that Consumer Price Index and Producer Price Index move in the same direction. Due to inflation, this hypothesis is deemed true because of the rising values of our products, we can no longer maintain the prices for consumers and producers.
+
+We can make a more in depth conclusion by analyzing the inflation of foods. Simple ingredients costs more than "luxury" products during these price increases. If you see agricultural ingredients going up, there will be a quicker increase in price compared to "luxury" items like cereal which can afford to wait out the price increase. We can use this information to reliably target products throughout the year. If animal produces are getting more expensive, we can freeze large quantities ahead of time to save money. Vice-versa for fruits and vegetables. This makes smarter choices where we can save money and can definitely help me as an active individual who loves to cook.
